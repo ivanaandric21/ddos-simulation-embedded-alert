@@ -13,17 +13,12 @@ The system is built as a modular pipeline:
 
 System Architecture:
 
-Attack VM(s)
-    ↓
-Victim Web Server (Nginx/Apache)
-    ↓
-Monitoring System (Python)
-    ↓
-Serial Communication (USB)
-    ↓
-Embedded Board (EV10P22A)
-    ↓
-RGB LED Indicator
+*Attack VM(s)
+*Victim Web Server (Nginx/Apache)
+*Monitoring System (Python)
+*Serial Communication (USB)
+*Embedded Board (EV10P22A)
+*RGB LED Indicator
 
 Explanation:
 Attack virtual machines generate HTTP traffic toward a test web server.
