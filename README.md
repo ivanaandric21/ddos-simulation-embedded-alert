@@ -45,8 +45,7 @@ ATTACK	High traffic (DDoS)	Red (blinking)
 
 Project Structure:
 ddos-simulation-embedded-alert
-│
-├── attack/        # Traffic generation scripts
-├── monitoring/    # Python scripts for detection
-├── victim/        # Web server configuration
-├── embedded/      # EV10P22A firmware
+ attack/        # Traffic generation scripts
+ monitoring/    # Python scripts for detection
+ victim/        # Web server configuration
+ embedded/      # EV10P22A firmware
