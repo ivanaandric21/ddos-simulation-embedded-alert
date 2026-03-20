@@ -24,23 +24,17 @@ Explanation:
 Attack virtual machines generate HTTP traffic toward a test web server.
 The server logs incoming requests.
 A Python monitoring script analyzes traffic (requests per second).
-Based on thresholds, the system classifies traffic as:
--NORMAL
--WARNING
--ATTACK
-
 The monitoring system sends a signal via serial communication.
 The embedded device displays the system state using an RGB LED.
 
-State	Condition	LED Color:
-
-NORMAL	Low traffic	Green
-WARNING	Increased traffic	Yellow
-ATTACK	High traffic (DDoS)	Red (blinking)
+Based on thresholds, the system classifies traffic as:
+-NORMAL - Low traffic -	GreenLED
+-WARNING - Increased traffic -	Yellow LED
+-ATTACK - High traffic (DDoS) -	Red (blinking) LED
 
 Project Structure:
-ddos-simulation-embedded-alert
- attack/        # Traffic generation scripts
- monitoring/    # Python scripts for detection
- victim/        # Web server configuration
- embedded/      # EV10P22A firmware
+
+*attack/ for traffic generation scripts,
+*monitoring/ for Python scripts for detection,
+*victim/ for Web server configuration, 
+*embedded/ for EV10P22A firmware
