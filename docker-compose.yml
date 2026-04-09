@@ -1,0 +1,42 @@
+version: '3.8'
+
+networks:
+  ddos-net:
+    driver: bridge
+
+services:
+  victim:
+    build: ./victim
+    container_name: victim
+    networks:
+      - ddos-net
+    ports:
+      - "8080:80"
+
+  attacker:
+    build: ./attack
+    networks:
+      - ddos-net
+    environment:
+      - TARGET_IP=victim
+      - TARGET_PORT=80
+      - ATTACK_MODE=http
+      - DURATION=30
+      - THREADS=100
+      - SLOWLORIS_CONNS=200
+      - WAIT_FOR_VICTIM=10
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    depends_on:
+      - victim
+
+  monitoring:
+    build: ./monitoring
+    container_name: monitoring
+    networks:
+      - ddos-net
+    cap_add:
+      - NET_RAW
+    depends_on:
+      - victim
