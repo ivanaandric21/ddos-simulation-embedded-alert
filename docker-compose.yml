@@ -21,10 +21,10 @@ services:
     environment:
       - TARGET_IP=victim
       - TARGET_PORT=80
-      - ATTACK_MODE=http
-      - DURATION=30
-      - THREADS=100
-      - SLOWLORIS_CONNS=200
+      - ATTACK_MODE=${ATTACK_MODE:-http}
+      - DURATION=${DURATION:-30}
+      - THREADS=${THREADS:-100}
+      - SLOWLORIS_CONNS=${SLOWLORIS_CONNS:-200}
       - WAIT_FOR_VICTIM=10
     cap_add:
       - NET_ADMIN
