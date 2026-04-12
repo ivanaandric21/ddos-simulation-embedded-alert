@@ -1,4 +1,3 @@
-version: '3.8'
 
 networks:
   ddos-net:
@@ -17,6 +16,8 @@ services:
     build: ./attack
     networks:
       - ddos-net
+    profiles:
+      - attack
     environment:
       - TARGET_IP=victim
       - TARGET_PORT=80

@@ -4,39 +4,45 @@ Supports: SYN flood, UDP flood, HTTP flood, Slowloris, ICMP flood
 Configurable via environment variables.
 
 HOW TO RUN:
-# 1) Vse skup (victim + attacker + monitoring)
-docker compose up --build ALI docker compose up --build -d
+# 1) Zazeni SAMO victim + monitoring (brez napada)
+docker compose up --build
 
-# 2) 3 napadalci naenkrat — dejanske so called "distributed" del
-docker compose up --build --scale attacker=3
+# 2) Zazeni napad (HTTP flood, 1 attacker) - victim mora ze runnate!!!!!!
+docker compose --profile attack up --build attacker
 
-# 3) 5 napadalcev
-docker compose up --build --scale attacker=5
+# 3) 3 napadalci naenkrat — the so called "distributed" del
+docker compose --profile attack up --build --scale attacker=3
 
-# 5) SYN flood
-docker compose run --rm -e ATTACK_MODE=syn attacker
+
+# 5) SYN flood (1 attacker)
+docker compose --profile attack run --rm -e ATTACK_MODE=syn attacker
 
 # 6) UDP flood
-docker compose run --rm -e ATTACK_MODE=udp attacker
+docker compose --profile attack run --rm -e ATTACK_MODE=udp attacker
 
 # 7) ICMP flood (ping flood)
-docker compose run --rm -e ATTACK_MODE=icmp attacker
+docker compose --profile attack run --rm -e ATTACK_MODE=icmp attacker
 
 # 8) HTTP flood
-docker compose run --rm -e ATTACK_MODE=http attacker
+docker compose --profile attack run --rm -e ATTACK_MODE=http attacker
 
 # 9) Slowloris
-docker compose run --rm -e ATTACK_MODE=slowloris attacker
+docker compose --profile attack run --rm -e ATTACK_MODE=slowloris attacker
 
-# 10) Samo attacker logi (brez victim spam-a)
-docker compose up --build attacker
+# 10) Samo attacker logi (brez victim spamaa)
+docker compose --profile attack up --build attacker
 
-# 11) Kill it: Ctrl+C -> docker compose down
+# 11) Kill it: Ctrl+C -> docker compose --profile attack down
 
+# 12) VSI MODI NAENKRAT - vsak container pozene vseh 5 modov paralelno
+#    Ce nastavimo scale=10, dobimo 10 containerjev x 5 modov = tocno 50 napadov
+#    PowerShell:  $env:ATTACK_MODE="all"; docker compose --profile attack up --build --scale attacker=10
+#    Linux/Mac:   ATTACK_MODE=all docker compose --profile attack up --build --scale attacker=10
 
-Ta skripta predstavlja napadalni del nasoga sim okolja..
-Znotraj Docker containerja simulira razlicne tipe (leko tudi vec naenkrat) DDoS napadov
-na zrtev (victim container).
+# 13) Izberi mode + scale naenkrat (npr. 5x SYN flood)
+#    PowerShell:  $env:ATTACK_MODE="syn"; docker compose --profile attack up --build --scale attacker=5
+#    Linux/Mac:   ATTACK_MODE=syn docker compose --profile attack up --build --scale attacker=5
+
 
 VICTIM:
   - Container se mora imenovate "victim" (ali pa spremenite TARGET_IP)
@@ -315,8 +321,36 @@ if __name__ == "__main__":
     log(f"  Threads : {THREADS} (HTTP) | Conns: {CONNS} (Slowloris)")
     log("=" * 50)
 
+    # Ce je mode "all", ta container zažene VSEH 5 napadov hkrati.
+    # Vsak napad tece v svojem threadu, vsi se izvajajo paralelno.
+    # To pomeni, da ce uporabimo --scale attacker=10, dobimo:
+    #   10 containerjev x 5 modov = tocno 50 napadov
+    #   Vsak mode ima GARANTIRANO 10 instanc - ni nakljucja.
+    #
+    # Primer uporabe:
+    #   PowerShell:  $env:ATTACK_MODE="all"; docker compose up --build --scale attacker=10
+    #   Linux/Mac:   ATTACK_MODE=all docker compose up --build --scale attacker=10
+    if MODE == "all":
+        log("Mode 'all' -> zaganjam VSEH 5 napadov at the same time v tem containerju")
+        wait_for_target()
+
+        # Vsak napad zazenemo v loceni niti, tako da tecejo vsi hkrati
+        attack_threads = []
+        for name, func in MODES.items():
+            log(f"  Zaganjam: {name}")
+            t = threading.Thread(target=func, daemon=True)
+            t.start()
+            attack_threads.append(t)
+
+        # Pocakamo da se vsi napadi zakljucijo (ko DURATION potece)
+        for t in attack_threads:
+            t.join()
+
+        log("All attacks finished.")
+        sys.exit(0)
+
     if MODE not in MODES:
-        log(f"Unknown mode '{MODE}'. Available modes: {list(MODES.keys())}")
+        log(f"Unknown mode '{MODE}'. Available: {list(MODES.keys())} + ['all']")
         sys.exit(1)
 
     wait_for_target()
