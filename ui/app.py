@@ -35,17 +35,18 @@ def status():
     # Prestejemo aktivne attacker containerje
     try:
         result = subprocess.run(
-            ["docker", "ps", "--filter", "label=com.docker.compose.service=attacker", "--filter", "status=running", "-q"],
+            ["sudo", "docker", "ps", "--filter", "name=attacker", "--filter", "status=running", "-q"],
             capture_output=True, text=True, timeout=5
         )
-        count = len(result.stdout.strip().split('\n')) if result.stdout.strip() else 0
+        lines = [l for l in result.stdout.strip().split('\n') if l]
+        count = len(lines)
     except Exception:
         count = 0
 
-    # victim tecee ?
+    # victim tece ?
     try:
         result = subprocess.run(
-            ["docker", "ps", "--filter", "name=victim", "--filter", "status=running", "-q"],
+            ["sudo", "docker", "ps", "--filter", "name=victim", "--filter", "status=running", "-q"],
             capture_output=True, text=True, timeout=5
         )
         victim_up = bool(result.stdout.strip())
@@ -57,7 +58,7 @@ def status():
 
 @app.route("/start", methods=["POST"])
 def start_attack():
-    # zazene docker compose z naseme parametrame.
+    # zazene docker compose z nasemi parametri.
     global _process, _log_queue
 
     if _process is not None and _process.poll() is None:
@@ -73,8 +74,8 @@ def start_attack():
     _log_queue = Queue()
 
     cmd = [
-        "docker", "compose", "--profile", "attack",
-        "up", "-d", "--build", "--no-recreate", "--scale", f"attacker={scale}",
+        "sudo", "docker-compose", "--profile", "attack",
+        "up", "--build", "--scale", f"attacker={scale}",
     ]
 
     env = os.environ.copy()
@@ -87,35 +88,22 @@ def start_attack():
 
     _process = subprocess.Popen(
         cmd, cwd=PROJECT_ROOT, env=env,
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-        text=True,
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        text=True, bufsize=1,
     )
 
     # Attacker logs -> logs window (SAMO attacker logs)
     def _follow_attacker_logs():
-        """Pocaka da se containerji zazenejo, potem streama samo relevantne loge."""
-        import time
-        time.sleep(5)
+        """Streama samo relevantne loge."""
         try:
-            proc = subprocess.Popen(
-                ["docker", "compose", "--profile", "attack", "logs", "-f", "--tail", "50", "attacker"],
-                cwd=PROJECT_ROOT, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-                text=True, bufsize=1,
-            )
-            for line in iter(proc.stdout.readline, ''):
+            for line in iter(_process.stdout.readline, ''):
                 if not line:
                     continue
                 clean = line.rstrip('\n')
                 if '[attacker]' in clean:
                     idx = clean.find('[attacker]')
                     _log_queue.put(clean[idx:])
-                check = subprocess.run(
-                    ["docker", "ps", "--filter", "label=com.docker.compose.service=attacker", "--filter", "status=running", "-q"],
-                    capture_output=True, text=True, timeout=3
-                )
-                if not check.stdout.strip():
-                    break
-            proc.terminate()
+            _process.wait()
         except Exception:
             pass
         _log_queue.put("Napad koncan.")
@@ -131,20 +119,29 @@ def stop_attack():
 
     _log_queue.put("Ustavljam napad ...")
 
-    subprocess.run(
-        ["docker", "compose", "--profile", "attack", "down"],
-        cwd=PROJECT_ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-    )
+    try:
+            result = subprocess.run(
+                ["sudo", "docker", "ps", "-a", "--filter", "name=attacker", "-q"],
+                capture_output=True, text=True, timeout=5
+            )
+            ids = [i for i in result.stdout.strip().split('\n') if i]
+            for cid in ids:
+                subprocess.run(["sudo", "docker", "stop", cid],
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                subprocess.run(["sudo", "docker", "rm", "-f", cid],
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception:
+        pass
 
     try:
         result = subprocess.run(
-            ["docker", "ps", "-a", "--filter", "label=com.docker.compose.service=attacker", "-q"],
+            ["sudo", "docker", "ps", "-a", "--filter", "name=attacker", "-q"],
             capture_output=True, text=True, timeout=5
         )
         ids = result.stdout.strip().split('\n')
         for cid in ids:
             if cid:
-                subprocess.run(["docker", "rm", "-f", cid],
+                subprocess.run(["sudo", "docker", "rm", "-f", cid],
                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except Exception:
         pass
@@ -170,14 +167,14 @@ def toggle_infra():
     if action == "up":
         _log_queue.put("Zaganjam victim + monitoring ...")
         subprocess.Popen(
-            ["docker", "compose", "up", "--build", "-d"],
+            ["sudo", "docker-compose", "up", "--build", "-d"],
             cwd=PROJECT_ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         )
         _log_queue.put("Victim + monitoring zagnana.")
     else:
         _log_queue.put("Ustavljam vse ...")
         subprocess.run(
-            ["docker", "compose", "--profile", "attack", "down", "--remove-orphans"],
+            ["sudo", "docker-compose", "--profile", "attack", "down"],
             cwd=PROJECT_ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         )
         _log_queue.put("Vse ustavljeno.")
@@ -204,7 +201,3 @@ if __name__ == "__main__":
     print("DDoS Simulation — Control Panel")
     print("http://localhost:5000")
     app.run(host="0.0.0.0", port=5000, debug=False, threaded=True)
-
-
-
-

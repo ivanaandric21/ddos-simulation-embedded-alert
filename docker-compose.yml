@@ -1,8 +1,6 @@
-
 networks:
   ddos-net:
     driver: bridge
-
 services:
   victim:
     build: ./victim
@@ -11,7 +9,8 @@ services:
       - ddos-net
     ports:
       - "8080:80"
-
+    mem_limit: 64m
+    cpus: 0.1
   attacker:
     build: ./attack
     networks:
@@ -31,7 +30,6 @@ services:
       - NET_RAW
     depends_on:
       - victim
-
   monitoring:
     build: ./monitoring
     container_name: monitoring
@@ -39,5 +37,7 @@ services:
       - ddos-net
     cap_add:
       - NET_RAW
+    devices:
+      - /dev/ttyACM0:/dev/ttyACM0
     depends_on:
       - victim
